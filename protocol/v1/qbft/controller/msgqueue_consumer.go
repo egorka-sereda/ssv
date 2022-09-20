@@ -159,7 +159,7 @@ func (c *Controller) processHigherHeight(handler MessageHandler, identifier stri
 	msgs := c.Q.WithIterator(1, true, func(index msgqueue.Index) bool {
 		ts, ok := higherCache[index]
 		if ok {
-			if time.Now().Sub(ts) < time.Second * 10 {
+			if time.Since(ts) < time.Second*10 {
 				return false // skip as the index was checked recently
 			}
 		}
