@@ -12,7 +12,6 @@ import (
 	"github.com/bloxapp/ssv/protocol/v1/qbft"
 	"github.com/bloxapp/ssv/protocol/v1/qbft/msgqueue"
 
-	"github.com/patrickmn/go-cache"
 	"go.uber.org/zap"
 )
 
@@ -39,7 +38,7 @@ func (c *Controller) ConsumeQueue(handler MessageHandler, interval time.Duration
 	defer cancel()
 
 	identifier := hex.EncodeToString(c.Identifier)
-	higherCache := cache.New(time.Second*12, time.Second*24)
+	higherCache := make(map[msgqueue.Index]time.Time)
 
 	for ctx.Err() == nil {
 		time.Sleep(interval)
@@ -101,11 +100,6 @@ func (c *Controller) processNoRunningInstance(
 		return false // only pop when no instance running
 	}
 
-	logger := c.Logger.With(
-		zap.String("sig state", c.SignatureState.getState().toString()),
-		zap.Int32("height", int32(lastHeight)),
-		zap.Int32("slot", int32(lastSlot)))
-
 	iterator := msgqueue.NewIndexIterator().Add(func() msgqueue.Index {
 		return msgqueue.SignedPostConsensusMsgIndex(identifier, lastSlot)
 	}, func() msgqueue.Index {
@@ -125,7 +119,10 @@ func (c *Controller) processNoRunningInstance(
 	}
 	err := handler(msgs[0])
 	if err != nil {
-		logger.Warn("could not handle msg", zap.Error(err))
+		c.Logger.Warn("could not handle msg",
+			//zap.String("sig state", c.SignatureState.getState().toString()),
+			zap.Int32("height", int32(lastHeight)),
+			zap.Int32("slot", int32(lastSlot)), zap.Error(err))
 	}
 	return true // msg processed
 }
@@ -158,15 +155,15 @@ func (c *Controller) processByState(handler MessageHandler, identifier string) b
 }
 
 // processHigherHeight fetch any message with higher height than last height
-func (c *Controller) processHigherHeight(handler MessageHandler, identifier string, lastHeight specqbft.Height, higherCache *cache.Cache) bool {
+func (c *Controller) processHigherHeight(handler MessageHandler, identifier string, lastHeight specqbft.Height, higherCache map[msgqueue.Index]time.Time) bool {
 	msgs := c.Q.WithIterator(1, true, func(index msgqueue.Index) bool {
-		key := index.String()
-		if _, found := higherCache.Get(key); !found {
-			higherCache.Set(key, 0, cache.DefaultExpiration)
-		} else {
-			return false // skip msg
+		ts, ok := higherCache[index]
+		if ok {
+			if time.Now().Sub(ts) < time.Second * 10 {
+				return false // skip as the index was checked recently
+			}
 		}
-
+		higherCache[index] = time.Now()
 		return index.ID == identifier && index.H > lastHeight
 	})
 
