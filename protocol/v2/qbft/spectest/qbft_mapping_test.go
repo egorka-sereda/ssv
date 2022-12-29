@@ -2,8 +2,6 @@ package qbft
 
 import (
 	"encoding/json"
-	"io"
-	"net/http"
 	"os"
 	"reflect"
 	"strings"
@@ -15,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	protocoltesting "github.com/bloxapp/ssv/protocol/v2/testing"
 	"github.com/bloxapp/ssv/protocol/v2/types"
 	"github.com/bloxapp/ssv/utils/logex"
 )
@@ -25,22 +24,8 @@ func init() {
 
 func TestQBFTMapping(t *testing.T) {
 	path, _ := os.Getwd()
-	fileName := "tests.json"
-	filePath := path + "/" + fileName
-	jsonTests, err := os.ReadFile(filePath)
-	if err != nil {
-		resp, err := http.Get("https://raw.githubusercontent.com/bloxapp/ssv-spec/7e96c8b781915faaa12d29eba94e702445bd5945/qbft/spectest/generate/tests.json")
-		require.NoError(t, err)
-
-		defer func() {
-			require.NoError(t, resp.Body.Close())
-		}()
-
-		jsonTests, err = io.ReadAll(resp.Body)
-		require.NoError(t, err)
-
-		require.NoError(t, os.WriteFile(filePath, jsonTests, 0644))
-	}
+	jsonTests, err := protocoltesting.GetSpecTestJSON(path, "qbft")
+	require.NoError(t, err)
 
 	untypedTests := map[string]interface{}{}
 	if err := json.Unmarshal(jsonTests, &untypedTests); err != nil {

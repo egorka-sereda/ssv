@@ -3,10 +3,6 @@ package spectest
 import (
 	"encoding/json"
 	"fmt"
-	qbfttesting "github.com/bloxapp/ssv/protocol/v2/qbft/testing"
-	ssvtesting "github.com/bloxapp/ssv/protocol/v2/ssv/testing"
-	"io"
-	"net/http"
 	"os"
 	"reflect"
 	"strings"
@@ -20,14 +16,16 @@ import (
 	"github.com/bloxapp/ssv-spec/ssv/spectest/tests/valcheck"
 	spectypes "github.com/bloxapp/ssv-spec/types"
 	"github.com/bloxapp/ssv-spec/types/testingutils"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-
 	"github.com/bloxapp/ssv/protocol/v2/qbft/controller"
 	"github.com/bloxapp/ssv/protocol/v2/qbft/instance"
+	qbfttesting "github.com/bloxapp/ssv/protocol/v2/qbft/testing"
 	"github.com/bloxapp/ssv/protocol/v2/ssv/runner"
+	ssvtesting "github.com/bloxapp/ssv/protocol/v2/ssv/testing"
+	protocoltesting "github.com/bloxapp/ssv/protocol/v2/testing"
 	"github.com/bloxapp/ssv/protocol/v2/types"
 	"github.com/bloxapp/ssv/utils/logex"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 )
 
 func init() {
@@ -36,22 +34,8 @@ func init() {
 
 func TestSSVMapping(t *testing.T) {
 	path, _ := os.Getwd()
-	fileName := "tests.json"
-	filePath := path + "/" + fileName
-	jsonTests, err := os.ReadFile(filePath)
-	if err != nil {
-		resp, err := http.Get("https://raw.githubusercontent.com/bloxapp/ssv-spec/7e96c8b781915faaa12d29eba94e702445bd5945/ssv/spectest/generate/tests.json")
-		require.NoError(t, err)
-
-		defer func() {
-			require.NoError(t, resp.Body.Close())
-		}()
-
-		jsonTests, err = io.ReadAll(resp.Body)
-		require.NoError(t, err)
-
-		require.NoError(t, os.WriteFile(filePath, jsonTests, 0644))
-	}
+	jsonTests, err := protocoltesting.GetSpecTestJSON(path, "ssv")
+	require.NoError(t, err)
 
 	untypedTests := map[string]interface{}{}
 	if err := json.Unmarshal(jsonTests, &untypedTests); err != nil {
