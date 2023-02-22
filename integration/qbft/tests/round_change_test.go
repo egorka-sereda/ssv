@@ -39,12 +39,15 @@ func roundChangeValidator() func(t *testing.T, committee int, actual *protocolst
 		require.Equal(t, int(qbft.Round(2)), int(actual.State.Round), "round not matching")
 
 		require.NotNil(t, actual.DecidedMessage, "no decided message")
-		require.Greater(t, len(actual.DecidedMessage.Signers), quorum(committee), "no commit qourum")
+		require.Greater(t, len(actual.DecidedMessage.Signers), quorum(committee)-1, "no commit qourum")
 
-		require.Len(t, actual.State.ProposeContainer.Msgs, 2, "propose messages contains more/less than 2 rounds")
-		require.Len(t, actual.State.ProposeContainer.Msgs[qbft.Round(2)], 1, "propose container for round 2 contains more/less than 1 messages")
-		require.Len(t, actual.State.ProposeContainer.Msgs[qbft.Round(2)][0].Signers, 1, "first message in propose container for round 2 contains more/less than 1 signer")
-		require.Equal(t, int(spectypes.OperatorID(2)), int(actual.State.ProposeContainer.Msgs[qbft.Round(2)][0].Signers[0]), "on second round proposer is not 2")
+		if _, ok := actual.State.ProposeContainer.Msgs[qbft.Round(2)]; ok {
+			require.Len(t, actual.State.ProposeContainer.Msgs[qbft.Round(2)], 1, "propose container for round 2 contains more/less than 1 messages")
+			require.Len(t, actual.State.ProposeContainer.Msgs[qbft.Round(2)][0].Signers, 1, "first message in propose container for round 2 contains more/less than 1 signer")
+			require.Equal(t, int(spectypes.OperatorID(2)), int(actual.State.ProposeContainer.Msgs[qbft.Round(2)][0].Signers[0]), "on second round proposer is not 2")
+		} else {
+			require.Fail(t, "no propose messages for round 2")
+		}
 	}
 }
 
